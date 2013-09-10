@@ -122,6 +122,8 @@ class SolrSearchBackend(BaseSearchBackend):
         search_kwargs = self.build_search_kwargs(query_string, **kwargs)
 
         try:
+            print query_string
+            print search_kwargs
             raw_results = self.conn.search(query_string, **search_kwargs)
         except (IOError, SolrError) as e:
             if not self.silently_fail:
@@ -134,7 +136,7 @@ class SolrSearchBackend(BaseSearchBackend):
 
     def build_search_kwargs(self, query_string, sort_by=None, start_offset=0, end_offset=None,
                             fields='', highlight=False, facets=None,
-                            date_facets=None, query_facets=None,
+                            date_facets=None, query_facets=None, pivot_facets=None,
                             narrow_queries=None, spelling_query=None,
                             within=None, dwithin=None, distance_point=None,
                             models=None, limit_to_registered_models=None,
@@ -210,6 +212,9 @@ class SolrSearchBackend(BaseSearchBackend):
         if query_facets is not None:
             kwargs['facet'] = 'on'
             kwargs['facet.query'] = ["%s:%s" % (field, value) for field, value in query_facets]
+
+        if pivot_facets is not None:
+            kwargs['facet.pivot'] = pivot_facets
 
         if limit_to_registered_models is None:
             limit_to_registered_models = getattr(settings, 'HAYSTACK_LIMIT_TO_REGISTERED_MODELS', True)
@@ -349,6 +354,7 @@ class SolrSearchBackend(BaseSearchBackend):
                 'fields': raw_results.facets.get('facet_fields', {}),
                 'dates': raw_results.facets.get('facet_dates', {}),
                 'queries': raw_results.facets.get('facet_queries', {}),
+                'pivots':raw_results.facets.get('facet_pivot',{})
             }
 
             for key in ['fields']:
@@ -646,6 +652,9 @@ class SolrSearchQuery(BaseSearchQuery):
 
         if self.date_facets:
             search_kwargs['date_facets'] = self.date_facets
+
+        if self.pivot_facets:
+            search_kwargs['pivot_facets'] = self.pivot_facets
 
         if self.distance_point:
             search_kwargs['distance_point'] = self.distance_point
