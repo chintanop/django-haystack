@@ -1,4 +1,5 @@
 from __future__ import unicode_literals
+import re
 import warnings
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -122,8 +123,8 @@ class SolrSearchBackend(BaseSearchBackend):
         search_kwargs = self.build_search_kwargs(query_string, **kwargs)
 
         try:
-            print query_string
-            print search_kwargs
+            #print "QUERY: ",query_string
+            #print "ARGS: ",search_kwargs
             raw_results = self.conn.search(query_string, **search_kwargs)
         except (IOError, SolrError) as e:
             if not self.silently_fail:
@@ -191,7 +192,9 @@ class SolrSearchBackend(BaseSearchBackend):
 
             for facet_field, options in facets.items():
                 for key, value in options.items():
-                    kwargs['f.%s.facet.%s' % (facet_field, key)] = self.conn._from_python(value)
+                    #print "Setting facet options ",key,"=",value
+                    facet_field_only = re.sub(r'\{.+\}','',facet_field)
+                    kwargs['f.%s.facet.%s' % (facet_field_only, key)] = self.conn._from_python(value)
 
         if date_facets is not None:
             kwargs['facet'] = 'on'
@@ -211,10 +214,11 @@ class SolrSearchBackend(BaseSearchBackend):
 
         if query_facets is not None:
             kwargs['facet'] = 'on'
-            kwargs['facet.query'] = ["%s:%s" % (field, value) for field, value in query_facets]
+            kwargs['fq']    = ["%s:\"%s\"" % (field, value) for field, value in query_facets]
 
         if pivot_facets is not None:
-            kwargs['facet.pivot'] = pivot_facets
+            #kwargs['facet.pivot'] = pivot_facets
+            kwargs['facet.pivot'] = ','.join(pivot_facets)
 
         if limit_to_registered_models is None:
             limit_to_registered_models = getattr(settings, 'HAYSTACK_LIMIT_TO_REGISTERED_MODELS', True)
